@@ -1,0 +1,152 @@
+<html>
+  <head>
+    <style>
+      body {
+        padding-top: 40px;
+        background-color: #000;
+        color: orange;
+        text-align: center;
+        font-family: Courier New;
+      }
+
+      h1 {
+        font-size: 36px;
+        font-weight: bold;
+      }
+
+      a {
+        color: #af15f4;
+        font-weight: bold;
+        background-color: #191919;
+      }
+
+      #top {
+        margin-bottom: 40px;
+      }
+
+      #loader img {
+        margin-bottom: 20px;
+      }
+
+      #loader {
+        font-size: 12px;
+        margin-bottom: 40px;
+      }
+
+      #messages {
+        color: #7b6336;
+      }
+
+      #messages div:first-of-type {
+        font-size: 18px;
+        font-weight: bold;
+        color: orange;
+        margin-bottom: 10px;
+      }
+
+      #messages div:first-of-type::after {
+        content: ' sats left';
+      }
+
+      #bitcoin-price {
+        background-color: purple;
+        color: aqua;
+      }
+
+      #progressbar {
+        background-color: #02fcfe;
+        border-radius: 13px;
+        padding: 3px;
+      }
+
+      #progressbar > div {
+        background-color: orange;
+        width: 0%;
+        height: 20px;
+        border-radius: 10px;
+      }
+
+      #progress-percent {
+        display: inline-block;
+        position: relative;
+        left: 6%;
+      }
+    </style>
+    <script src="./node_modules/animejs/lib/anime.min.js"></script>
+  </head>
+  <body>
+    <h1>SatsLeft</h1>
+    <p>1 BTC = <span id="bitcoin-price"></span> USD</p>
+    <p>Moscow time (sats per 1 USD): <span id="moscow-time"></span></p>
+    <div id="progressbar">
+      <div>
+        <span id="progress-percent" style="text-align: center; color: #000;">1%</span>
+      </div>
+    </div>
+    <p id="top">How many <a href="https://en.bitcoin.it/wiki/Satoshi_(unit)">sats</a> are there left to mine?</p>
+    <p id="loader">
+      <img src="https://media.giphy.com/media/nZW5fIzaIJVXddVla7/giphy.gif" width="100px"/><br/>
+      waiting for next block to be mined...
+    </p>
+    <div id="messages">
+    </div>
+  </body>
+  <script type="text/javascript">
+    function formatNumber(num) {
+      return num.toString().replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1,')
+    }
+
+    function append_to_page(text) {
+      const newElement = document.createElement('div');
+
+      btcleft = text / 100000000;
+      btcleftpercent = ((1 - (btcleft / 20999899)) * 100).toFixed(8);
+
+      anime({
+            targets: '#progressbar > div',
+            width: `${btcleftpercent}%`,
+            easing: 'easeInOutQuad',
+            duration: 3000
+          });
+
+      document.querySelector('#progress-percent').innerHTML = `${btcleftpercent}% sats already mined`;
+
+      newElement.innerHTML = formatNumber(text);
+      document.querySelector('#messages').prepend(newElement);
+    }
+
+    const clientId = Math.random();
+
+    const ws = new WebSocket('ws://domain:3019');
+    ws.onmessage = function(msg) {
+      if(msg.data == "block found") {
+        anime({
+              targets: 'body',
+              backgroundColor: ['#FFF', '#33154d', '#000'],
+              easing: 'easeInOutQuad',
+              duration: 5000
+            });
+
+        anime({
+              targets: '#messages > div:first-of-type',
+              color: ['#ff33', '#33154d', '#f8f8f'],
+              easing: 'easeInOutQuad',
+              duration: 5000
+            });
+      } else {
+        append_to_page(msg.data);
+      }
+    };
+
+    const cbws = new WebSocket('wss://ws-feed.pro.coinbase.com');
+    cbws.onopen = function() {
+      cbws.send(JSON.stringify({ type: "subscribe", channels: [{ name: "ticker", product_ids: ["BTC-USD"] }] }));
+    };
+
+    cbws.onmessage = function(msg) {
+      parsedMsg = JSON.parse(msg["data"]);
+      document.querySelector("#bitcoin-price").innerHTML = parsedMsg["price"];
+      document.querySelector("#moscow-time").innerHTML = (100000000 / parsedMsg["price"]).toFixed(0);
+    }
+  </script>
+</html>
